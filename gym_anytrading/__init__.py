@@ -2,7 +2,7 @@ from gymnasium.envs.registration import register
 from copy import deepcopy
 
 from . import datasets
-
+from .typedefs import Actions, Positions, RewardType
 
 register(
     id="forex-v0",
