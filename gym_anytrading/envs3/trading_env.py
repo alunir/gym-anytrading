@@ -96,7 +96,7 @@ class TradingEnv(gym.Env):
             _next_position = Positions.Long
         elif action == Actions.Sell.value:
             _next_position = Positions.Short
-        elif action == Actions.BeNeutral.value:
+        elif action == Actions.Unwind.value:
             _next_position = Positions.Neutral
         else:
             raise ValueError(f"Invalid action: {action}")
