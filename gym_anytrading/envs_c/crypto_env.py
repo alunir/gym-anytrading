@@ -1,6 +1,6 @@
 import numpy as np
 
-from .typedefs import Positions, RewardType
+from gym_anytrading.envs.typedefs import Positions, RewardType
 from .trading_env import TradingEnv
 
 

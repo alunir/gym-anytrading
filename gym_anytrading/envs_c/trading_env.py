@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import gymnasium as gym
-from .typedefs import Positions
+from gym_anytrading.envs.typedefs import Positions
 
 
 class TradingEnv(gym.Env):

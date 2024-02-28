@@ -2,7 +2,6 @@ from gymnasium.envs.registration import register
 from copy import deepcopy
 
 from . import datasets
-from .envs3.typedefs import RewardType
 
 
 register(
@@ -27,7 +26,7 @@ register(
 
 register(
     id="crypto-v0",
-    entry_point="gym_anytrading.envs_c:CryptoEnv",
+    entry_point="gym_anytrading.envs3:CryptoEnv",
     kwargs={
         "df": deepcopy(datasets.CRYPTO_ETHUSDT_5M),
         "window_size": 24,
