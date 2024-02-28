@@ -45,7 +45,7 @@ class TradingEnv(gym.Env):
         self._first_rendering = None
         self.history = None
 
-        self._epoch = []
+        self._epoch = None
         self._max_dd = -1e10
 
     def reset(self, seed=None, options=None):
@@ -121,7 +121,7 @@ class TradingEnv(gym.Env):
             total_profit=self._total_profit,
             position=self._position,
             max_dd=self._max_dd,
-            count=len(self._epoch),
+            count=self._current_tick,
             epoch=self._epoch,
         )
 

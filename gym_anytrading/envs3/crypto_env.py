@@ -85,7 +85,7 @@ class CryptoEnv(TradingEnv):
                 raise NotImplementedError
 
             self._max_dd = np.max([abs(dd), self._max_dd])
-            self._epoch += [self.df.index[self._current_tick]]
+            self._epoch = [self.df.index[self._current_tick]]
 
         return step_reward
 
