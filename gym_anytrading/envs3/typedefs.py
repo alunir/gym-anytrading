@@ -15,5 +15,6 @@ class Positions(Enum):
 
 class RewardType(Enum):
     Profit = 0
-    LogReturn = 1
-    RoMaD = 2
+    Return = 1
+    LogReturn = 2
+    RoMaD = 3

@@ -47,13 +47,11 @@ class CryptoEnv(TradingEnv):
 
             if self._position == Positions.Short:
                 ret = (last_trade_price / current_price - 1.0) * self.leverage
+                log_ret = (
+                    np.log(last_trade_price) - np.log(current_price)
+                ) * self.leverage
                 price_diff = last_trade_price - current_price
-                quantity = self._total_profit / last_trade_price
-                profit = (
-                    quantity
-                    * (price_diff - abs(price_diff) * self.trade_fee_ask_percent)
-                    / last_trade_price
-                )
+                profit = price_diff - abs(price_diff) * self.trade_fee_ask_percent
                 # TODO: consider High/Low instead.
                 dd = (
                     1.0
@@ -62,13 +60,11 @@ class CryptoEnv(TradingEnv):
                 )
             elif self._position == Positions.Long:
                 ret = (current_price / last_trade_price - 1.0) * self.leverage
-                price_diff = current_price - last_trade_price
-                quantity = self._total_profit / last_trade_price
-                profit = (
-                    quantity
-                    * (price_diff - abs(price_diff) * self.trade_fee_bid_percent)
-                    / last_trade_price
-                )
+                log_ret = (
+                    np.log(current_price) - np.log(last_trade_price)
+                ) * self.leverage
+                price_diff = (current_price - last_trade_price) * self.leverage
+                profit = price_diff - abs(price_diff) * self.trade_fee_bid_percent
                 dd = (
                     np.min(self.prices[self._last_trade_tick : self._current_tick])
                     / last_trade_price
@@ -77,8 +73,10 @@ class CryptoEnv(TradingEnv):
 
             if self.reward_type == RewardType.Profit:
                 step_reward = profit
-            elif self.reward_type == RewardType.LogReturn:
+            elif self.reward_type == RewardType.Return:
                 step_reward = ret
+            elif self.reward_type == RewardType.LogReturn:
+                step_reward = log_ret
             elif self.reward_type == RewardType.RoMaD:
                 step_reward = (
                     np.sign(ret) if dd == 0.0 else 2 * sigmoid(ret / abs(dd)) - 1
@@ -103,20 +101,15 @@ class CryptoEnv(TradingEnv):
             current_price = self.prices[self._current_tick]
             last_trade_price = self.prices[self._last_trade_tick]
 
-            quantity = self._total_profit / last_trade_price
             if self._position == Positions.Long:
-                price_diff = current_price - last_trade_price
+                price_diff = (current_price - last_trade_price) * self.leverage
                 self._total_profit += (
-                    quantity
-                    * (price_diff - abs(price_diff) * self.trade_fee_bid_percent)
-                    / last_trade_price
+                    price_diff - abs(price_diff) * self.trade_fee_bid_percent
                 )
             elif self._position == Positions.Short:
-                price_diff = last_trade_price - current_price
+                price_diff = (last_trade_price - current_price) * self.leverage
                 self._total_profit += (
-                    quantity
-                    * (price_diff - abs(price_diff) * self.trade_fee_ask_percent)
-                    / last_trade_price
+                    price_diff - abs(price_diff) * self.trade_fee_ask_percent
                 )
 
     def max_possible_profit(self):
