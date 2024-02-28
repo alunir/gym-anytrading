@@ -61,6 +61,8 @@ class CryptoEnv(StocksEnv):
 
             # calculate metrics
             if self._position == Positions.Short:
+                price_diff = last_trade_price - current_price
+                profit = price_diff - abs(price_diff) * self.trade_fee_ask_percent
                 log_ret = (
                     np.log(last_trade_price) - np.log(current_price)
                 ) * self.leverage
@@ -70,6 +72,8 @@ class CryptoEnv(StocksEnv):
                     / last_trade_price
                 )
             elif self._position == Positions.Long:
+                price_diff = current_price - last_trade_price
+                profit = price_diff - abs(price_diff) * self.trade_fee_bid_percent
                 log_ret = (
                     np.log(current_price) - np.log(last_trade_price)
                 ) * self.leverage
@@ -79,7 +83,10 @@ class CryptoEnv(StocksEnv):
                     - 1.0
                 )
 
-            if self.reward_type == RewardType.LogReturn:
+            # calculate reward
+            if self.reward_type == RewardType.Profit:
+                step_reward += profit
+            elif self.reward_type == RewardType.LogReturn:
                 step_reward += log_ret
             elif self.reward_type == RewardType.MaxDD:
                 step_reward += np.max([dd - self._max_dd, 0])  # add only diff??

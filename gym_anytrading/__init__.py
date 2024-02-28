@@ -26,11 +26,11 @@ register(
 
 register(
     id="crypto-v0",
-    entry_point="gym_anytrading.envs3:CryptoEnv",
+    entry_point="gym_anytrading.envs:CryptoEnv",
     kwargs={
         "df": deepcopy(datasets.CRYPTO_ETHUSDT_5M),
         "window_size": 24,
         "frame_bound": (24, len(datasets.CRYPTO_ETHUSDT_5M)),
-        "trade_fee": 0.0,
+        "trade_fee": 0.0003,
     },
 )
