@@ -76,11 +76,11 @@ class CryptoEnv(TradingEnv):
                 )
 
             if self.reward_type == RewardType.Profit:
-                step_reward += profit
+                step_reward = profit
             elif self.reward_type == RewardType.LogReturn:
-                step_reward += ret
+                step_reward = ret
             elif self.reward_type == RewardType.RoMaD:
-                step_reward += (
+                step_reward = (
                     np.sign(ret) if dd == 0.0 else 2 * sigmoid(ret / abs(dd)) - 1
                 )
             else:
