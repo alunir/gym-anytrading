@@ -1,7 +1,6 @@
 import numpy as np
 
-from .typedefs import Actions, Positions
-from .trading_env import TradingEnv
+from .trading_env import TradingEnv, Actions, Positions
 
 
 class StocksEnv(TradingEnv):
@@ -16,12 +15,10 @@ class StocksEnv(TradingEnv):
         self.trade_fee_ask_percent = 0.005  # unit
 
     def _process_data(self):
-        prices = self.df.loc[:, "Close"].to_numpy()
+        prices = self.df.loc[:, 'Close'].to_numpy()
 
-        prices[
-            self.frame_bound[0] - self.window_size
-        ]  # validate index (TODO: Improve validation)
-        prices = prices[self.frame_bound[0] - self.window_size : self.frame_bound[1]]
+        prices[self.frame_bound[0] - self.window_size]  # validate index (TODO: Improve validation)
+        prices = prices[self.frame_bound[0]-self.window_size:self.frame_bound[1]]
 
         diff = np.insert(np.diff(prices), 0, 0)
         signal_features = np.column_stack((prices, diff))
@@ -32,8 +29,9 @@ class StocksEnv(TradingEnv):
         step_reward = 0
 
         trade = False
-        if (action == Actions.Buy.value and self._position == Positions.Short) or (
-            action == Actions.Sell.value and self._position == Positions.Long
+        if (
+            (action == Actions.Buy.value and self._position == Positions.Short) or
+            (action == Actions.Sell.value and self._position == Positions.Long)
         ):
             trade = True
 
@@ -49,8 +47,9 @@ class StocksEnv(TradingEnv):
 
     def _update_profit(self, action):
         trade = False
-        if (action == Actions.Buy.value and self._position == Positions.Short) or (
-            action == Actions.Sell.value and self._position == Positions.Long
+        if (
+            (action == Actions.Buy.value and self._position == Positions.Short) or
+            (action == Actions.Sell.value and self._position == Positions.Long)
         ):
             trade = True
 
@@ -59,32 +58,24 @@ class StocksEnv(TradingEnv):
             last_trade_price = self.prices[self._last_trade_tick]
 
             if self._position == Positions.Long:
-                shares = (
-                    self._total_profit * (1 - self.trade_fee_ask_percent)
-                ) / last_trade_price
-                self._total_profit = (
-                    shares * (1 - self.trade_fee_bid_percent)
-                ) * current_price
+                shares = (self._total_profit * (1 - self.trade_fee_ask_percent)) / last_trade_price
+                self._total_profit = (shares * (1 - self.trade_fee_bid_percent)) * current_price
 
     def max_possible_profit(self):
         current_tick = self._start_tick
         last_trade_tick = current_tick - 1
-        profit = 1.0
+        profit = 1.
 
         while current_tick <= self._end_tick:
             position = None
             if self.prices[current_tick] < self.prices[current_tick - 1]:
-                while (
-                    current_tick <= self._end_tick
-                    and self.prices[current_tick] < self.prices[current_tick - 1]
-                ):
+                while (current_tick <= self._end_tick and
+                       self.prices[current_tick] < self.prices[current_tick - 1]):
                     current_tick += 1
                 position = Positions.Short
             else:
-                while (
-                    current_tick <= self._end_tick
-                    and self.prices[current_tick] >= self.prices[current_tick - 1]
-                ):
+                while (current_tick <= self._end_tick and
+                       self.prices[current_tick] >= self.prices[current_tick - 1]):
                     current_tick += 1
                 position = Positions.Long
 
