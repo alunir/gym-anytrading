@@ -23,7 +23,9 @@ class TradingEnv(gym.Env):
         self.shape = (window_size, self.signal_features.shape[1])
 
         # spaces
-        self.action_space = gym.spaces.Discrete(len(Actions))
+        self.action_space = gym.spaces.Discrete(
+            len([Actions.Buy, Actions.Sell]), start=Actions.Buy.value
+        )
         INF = 1e10
         self.observation_space = gym.spaces.Box(
             low=-INF,
