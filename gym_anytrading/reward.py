@@ -35,6 +35,9 @@ class RewardCalculator:
         else:
             raise ValueError("Invalid action")
 
+    def reset(self):
+        self._metrics = {m: 0.0 for m in Metrics}
+
     @staticmethod
     def __welford_update(old_mean, old_var, num, new_val):
         # Welford's algorithm https://zenn.dev/utcarnivaldayo/articles/ffeed5ac2e62bb

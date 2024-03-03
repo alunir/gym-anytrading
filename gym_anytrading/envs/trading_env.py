@@ -41,11 +41,6 @@ class TradingEnv(gym.Env, RewardCalculator):
             trade_fee_ask_percent=trade_fee_ask_percent,
             trade_fee_bid_percent=trade_fee_bid_percent,
         )
-        # self._reward_calculator = RewardCalculator(
-        #     self.prices,
-        #     trade_fee_ask_percent=trade_fee_ask_percent,
-        #     trade_fee_bid_percent=trade_fee_bid_percent,
-        # )
 
         # spaces
         self.action_space = gym.spaces.Discrete(
@@ -73,7 +68,9 @@ class TradingEnv(gym.Env, RewardCalculator):
         self.history = None
 
     def reset(self, seed=None, options=None):
-        super().reset(seed=seed, options=options)
+        gym.Env.reset(self, seed=seed, options=options)
+        RewardCalculator.reset(self)
+
         self.action_space.seed(
             int((self.np_random.uniform(0, seed if seed is not None else 1)))
         )
@@ -83,12 +80,6 @@ class TradingEnv(gym.Env, RewardCalculator):
         self._last_trade_tick = self._current_tick - 1
         self._position = Positions.Short
         self._position_history = (self.window_size * [None]) + [self._position]
-
-        # self._reward_calculator = RewardCalculator(
-        #     self.prices,
-        #     trade_fee_ask_percent=self._trade_fee_ask_percent,
-        #     trade_fee_bid_percent=self._trade_fee_bid_percent,
-        # )
 
         self._first_rendering = True
         self.history = {}
