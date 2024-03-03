@@ -14,8 +14,6 @@ class RewardCalculator:
         self._trade_fee_ask_percent = trade_fee_ask_percent
         self._trade_fee_bid_percent = trade_fee_bid_percent
         self._metrics = {m: 0.0 for m in Metrics}
-        self._returns = []
-        self._pl = []
 
     def _trade_price(self, tick):
         return self._prices[tick]
@@ -37,6 +35,13 @@ class RewardCalculator:
         else:
             raise ValueError("Invalid action")
 
+    @staticmethod
+    def __welford_update(old_mean, old_var, num, new_val):
+        # Welford's algorithm https://zenn.dev/utcarnivaldayo/articles/ffeed5ac2e62bb
+        tmp = old_mean + (new_val - old_mean) / (num + 1)
+        var = old_var + (new_val - old_mean) * (new_val - tmp)
+        return tmp, var
+
     # update metrics
     def update(self, action: Actions, current_tick, last_trade_tick):
         current_price, last_trade_price = self._trade_price(
@@ -47,8 +52,25 @@ class RewardCalculator:
         if action == Actions.Buy:
             price_diff = current_price - last_trade_price
             pl = price_diff - abs(price_diff) * self._trade_fee_bid_percent
-            self._pl += [pl]
-            self._returns += [pl / last_trade_price + 1.0]
+            returns = pl / last_trade_price + 1.0
+
+            self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
+                self.__welford_update(
+                    self._metrics[Metrics.MeanPL],
+                    self._metrics[Metrics.VarPL],
+                    self._metrics[Metrics.Trades],
+                    pl,
+                )
+            )
+            self._metrics[Metrics.MeanReturns], self._metrics[Metrics.VarReturns] = (
+                self.__welford_update(
+                    self._metrics[Metrics.MeanReturns],
+                    self._metrics[Metrics.VarReturns],
+                    self._metrics[Metrics.Trades],
+                    returns,
+                )
+            )
+            self._metrics[Metrics.LogReturns] += np.log(returns)
             self._metrics[Metrics.Profit] += max(pl, 0)
             self._metrics[Metrics.Loss] += min(pl, 0)
             self._metrics[Metrics.Trades] += 1
@@ -57,8 +79,25 @@ class RewardCalculator:
         elif action == Actions.Sell:
             price_diff = last_trade_price - current_price
             pl = price_diff - abs(price_diff) * self._trade_fee_ask_percent
-            self._pl += [pl]
-            self._returns += [pl / current_price + 1.0]
+            returns = pl / current_price + 1.0
+
+            self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
+                self.__welford_update(
+                    self._metrics[Metrics.MeanPL],
+                    self._metrics[Metrics.VarPL],
+                    self._metrics[Metrics.Trades],
+                    pl,
+                )
+            )
+            self._metrics[Metrics.MeanReturns], self._metrics[Metrics.VarReturns] = (
+                self.__welford_update(
+                    self._metrics[Metrics.MeanReturns],
+                    self._metrics[Metrics.VarReturns],
+                    self._metrics[Metrics.Trades],
+                    returns,
+                )
+            )
+            self._metrics[Metrics.LogReturns] += np.log(returns)
             self._metrics[Metrics.Profit] += max(pl, 0)
             self._metrics[Metrics.Loss] += min(pl, 0)
             self._metrics[Metrics.Trades] += 1
@@ -72,10 +111,10 @@ class RewardCalculator:
         match reward_type:
             case RewardType.Profit:
                 return self._metrics[Metrics.Profit]
-            case RewardType.Return:
-                return np.prod(self._returns)
-            case RewardType.LogReturn:
-                return np.sum(np.log(self._returns))
+            case RewardType.Returns:
+                return np.exp(self._metrics[Metrics.LogReturns])
+            case RewardType.LogReturns:
+                return self._metrics[Metrics.LogReturns]
             case RewardType.WinRate:
                 if self._metrics[Metrics.Trades] == 0:
                     return 0.0
@@ -133,27 +172,23 @@ class RewardCalculator:
                 if self._metrics[Metrics.Trades] == 0:
                     return 0.0
                 return np.power(
-                    np.prod(self._returns),
+                    np.exp(self._metrics[Metrics.LogReturns]),
                     1 / (self._metrics[Metrics.Trades]),
                 )
             case RewardType.AHPR:
-                return np.mean(self._returns)
-            case RewardType.RoMaD:
-                if len([pl for pl in self._pl if pl < 0]) == 0:
-                    return -1e10
-                return -np.sum(self._pl) / (min([pl for pl in self._pl if pl < 0]))
+                return self._metrics[Metrics.MeanReturns]
             case RewardType.SQN:
-                if np.std(self._pl) == 0.0:
-                    return -1e10
+                if self._metrics[Metrics.VarPL] == 0.0:
+                    return 0.0
                 return (
                     np.sqrt(self._metrics[Metrics.Trades])
-                    * np.mean(self._pl)
-                    / np.std(self._pl)
+                    * self._metrics[Metrics.MeanPL]
+                    / np.sqrt(self._metrics[Metrics.VarPL])
                 )
-            # case RewardType.RecoveryFactor:
-            #     return -np.prod(self._returns) / (
-            #         self._metrics[Metrics.MaxDD] or np.nan
-            #     )
+            case RewardType.RecoveryFactor:
+                return -np.exp(self._metrics[Metrics.LogReturns]) / (
+                    self._metrics[Metrics.MaxDD] or np.nan
+                )
             # case RewardType.SharpeRatio:
             #     return np.prod([r for r in self._returns if r > 1.0]) / (
             #         np.std(self._returns) or np.nan
@@ -163,6 +198,14 @@ class RewardCalculator:
             #         return np.nan
             #     return np.prod([r for r in self._returns if r > 1.0]) / np.std(
             #         [r for r in self._returns if r < 1.0]
+            #     )
+            # case RewardType.RoMaD:
+            #     if len([pl for pl in self._pl if pl < 0]) == 0:
+            #         return -1e10
+            #     return (
+            #         -self._metrics[Metrics.MeanPL]
+            #         * self._metrics[Metrics.Trades]
+            #         / (min([pl for pl in self._pl if pl < 0]))
             #     )
             case _:
                 raise NotImplementedError
