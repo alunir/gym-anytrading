@@ -3,7 +3,6 @@ import pandas as pd
 
 from .stocks_env import StocksEnv
 from ..typedefs import Actions, Positions, RewardType
-from ..reward import RewardCalculator
 
 
 class CryptoEnv(StocksEnv):
@@ -24,22 +23,15 @@ class CryptoEnv(StocksEnv):
 
         self.frame_bound = frame_bound
         self.leverage = leverage  # Forex: 10000 [Unit]. Crypto: leverage etc...
-        super().__init__(df, window_size, frame_bound, render_mode)
-
-        self._reward_type = reward_type
-
-        self.trade_fee_bid_percent = trade_fee  # unit
-        self.trade_fee_ask_percent = trade_fee  # unit
-
-        # reward calculator setup
-        self._reward_calculator = RewardCalculator(
-            self.prices,
-            trade_fee_ask_percent=self.trade_fee_ask_percent,
-            trade_fee_bid_percent=self.trade_fee_bid_percent,
+        super().__init__(
+            df,
+            window_size,
+            frame_bound,
+            render_mode,
+            reward_type,
+            trade_fee_ask_percent=trade_fee,
+            trade_fee_bid_percent=trade_fee,
         )
-
-    def _get_info(self):
-        return self._reward_calculator.get_info()
 
     def _process_data(self):
         prices = self.df.loc[:, "Close"].to_numpy()
@@ -55,12 +47,10 @@ class CryptoEnv(StocksEnv):
             action != Actions.Buy.value and self._position == Positions.Long
         ):
             # calculate metrics
-            self._reward_calculator.update(
-                Actions(action), self._current_tick, self._last_trade_tick
-            )
+            self.update(Actions(action), self._current_tick, self._last_trade_tick)
 
             # calculate reward
-            step_reward = self._reward_calculator.reward(self._reward_type)
+            step_reward = self.reward(self._reward_type)
 
             self._epoch = self.df.index[self._current_tick]
 

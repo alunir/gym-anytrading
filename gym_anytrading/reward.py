@@ -7,8 +7,8 @@ class RewardCalculator:
     def __init__(
         self,
         prices,
-        trade_fee_ask_percent=0.0003,
-        trade_fee_bid_percent=0.0003,
+        trade_fee_ask_percent,
+        trade_fee_bid_percent,
     ):
         self._prices = prices
         self._trade_fee_ask_percent = trade_fee_ask_percent
@@ -77,18 +77,25 @@ class RewardCalculator:
             case RewardType.LogReturn:
                 return np.sum(np.log(self._returns))
             case RewardType.WinRate:
+                if self._metrics[Metrics.Trades] == 0:
+                    return 0.0
                 return self._metrics[Metrics.WinTrades] / (
-                    self._metrics[Metrics.Trades] or np.nan
+                    self._metrics[Metrics.Trades]
                 )
             case RewardType.ProfitPerTrade:
-                return self._metrics[Metrics.Profit] / (
-                    self._metrics[Metrics.Trades] or np.nan
-                )
+                if self._metrics[Metrics.Trades] == 0:
+                    return 0.0
+                return self._metrics[Metrics.Profit] / (self._metrics[Metrics.Trades])
             case RewardType.ProfitFactor:
-                return -self._metrics[Metrics.Profit] / (
-                    self._metrics[Metrics.Loss] or np.nan
-                )
+                if self._metrics[Metrics.LoseTrades] == 0:
+                    return 0.0
+                return -self._metrics[Metrics.Profit] / (self._metrics[Metrics.Loss])
             case RewardType.PesimisticProfitFactor:
+                if (
+                    self._metrics[Metrics.WinTrades] == 0
+                    or self._metrics[Metrics.LoseTrades] == 0
+                ):
+                    return 0.0
                 return -(
                     (
                         self._metrics[Metrics.WinTrades]
@@ -96,7 +103,7 @@ class RewardCalculator:
                     )
                     * (
                         self._metrics[Metrics.Profit]
-                        / (self._metrics[Metrics.WinTrades] or np.nan)
+                        / (self._metrics[Metrics.WinTrades])
                     )
                 ) / (
                     (
@@ -104,42 +111,44 @@ class RewardCalculator:
                         + np.sqrt(self._metrics[Metrics.LoseTrades])
                     )
                     * self._metrics[Metrics.Loss]
-                    / (self._metrics[Metrics.LoseTrades] or np.nan)
+                    / (self._metrics[Metrics.LoseTrades])
                 )
             case RewardType.KellyCriterion:
+                if (
+                    self._metrics[Metrics.WinTrades] == 0
+                    or self._metrics[Metrics.LoseTrades] == 0
+                ):
+                    return 0.0
                 return self._metrics[Metrics.WinTrades] / (
-                    self._metrics[Metrics.Trades] or np.nan
+                    self._metrics[Metrics.Trades]
                 ) - (
                     1
-                    - self._metrics[Metrics.WinTrades]
-                    / (self._metrics[Metrics.Trades] or np.nan)
+                    - self._metrics[Metrics.WinTrades] / (self._metrics[Metrics.Trades])
                 ) / (
-                    self._metrics[Metrics.Profit]
-                    / (self._metrics[Metrics.WinTrades] or np.nan)
+                    self._metrics[Metrics.Profit] / (self._metrics[Metrics.WinTrades])
                 ) / (
-                    (
-                        self._metrics[Metrics.Loss]
-                        / (self._metrics[Metrics.LoseTrades] or np.nan)
-                    )
+                    (self._metrics[Metrics.Loss] / (self._metrics[Metrics.LoseTrades]))
                 )
             case RewardType.GHPR:
+                if self._metrics[Metrics.Trades] == 0:
+                    return 0.0
                 return np.power(
                     np.prod(self._returns),
-                    1 / (self._metrics[Metrics.Trades] or np.nan),
+                    1 / (self._metrics[Metrics.Trades]),
                 )
             case RewardType.AHPR:
                 return np.mean(self._returns)
             case RewardType.RoMaD:
                 if len([pl for pl in self._pl if pl < 0]) == 0:
-                    return np.nan
-                return -np.sum(self._pl) / (
-                    min([pl for pl in self._pl if pl < 0]) or np.nan
-                )
+                    return -1e10
+                return -np.sum(self._pl) / (min([pl for pl in self._pl if pl < 0]))
             case RewardType.SQN:
+                if np.std(self._pl) == 0.0:
+                    return -1e10
                 return (
                     np.sqrt(self._metrics[Metrics.Trades])
                     * np.mean(self._pl)
-                    / (np.std(self._pl) or np.nan)
+                    / np.std(self._pl)
                 )
             # case RewardType.RecoveryFactor:
             #     return -np.prod(self._returns) / (
