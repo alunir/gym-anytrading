@@ -37,8 +37,8 @@ class TradingEnv(gym.Env, RewardCalculator):
         # reward calculator setup
         RewardCalculator.__init__(
             self,
-            ask=self.df.Low.iloc[self.window_size :],
-            bid=self.df.High.iloc[self.window_size :],
+            ask=self.df.High.iloc[self.window_size :],
+            bid=self.df.Low.iloc[self.window_size :],
             trade_fee_ask_percent=trade_fee_ask_percent,
             trade_fee_bid_percent=trade_fee_bid_percent,
         )
