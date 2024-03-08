@@ -37,7 +37,7 @@ class TradingEnv(gym.Env, RewardCalculator):
         # reward calculator setup
         RewardCalculator.__init__(
             self,
-            self.prices,
+            prices=self.prices,
             trade_fee_ask_percent=trade_fee_ask_percent,
             trade_fee_bid_percent=trade_fee_bid_percent,
         )

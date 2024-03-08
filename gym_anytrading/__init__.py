@@ -34,3 +34,14 @@ register(
         "trade_fee": 0.0003,
     },
 )
+
+register(
+    id="crypto-v1",
+    entry_point="gym_anytrading.envs2d:CryptoEnv",
+    kwargs={
+        "df": deepcopy(datasets.CRYPTO_ETHUSDT_5M),
+        "window_size": 32,
+        "frame_bound": (32, len(datasets.CRYPTO_ETHUSDT_5M)),
+        "trade_fee": 0.0003,
+    },
+)

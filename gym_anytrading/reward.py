@@ -6,30 +6,47 @@ import numpy as np
 class RewardCalculator:
     def __init__(
         self,
-        prices,
         trade_fee_ask_percent,
         trade_fee_bid_percent,
+        prices=None,
+        ask=None,
+        bid=None,
     ):
-        self._prices = prices
+        if ask is not None and bid is not None:
+            assert len(ask) == len(bid)
+            self._ask, self._bid = ask, bid
+        elif prices is not None:
+            self._prices = prices
+        else:
+            raise ValueError("Must provide prices or (ask and bid).")
         self._trade_fee_ask_percent = trade_fee_ask_percent
         self._trade_fee_bid_percent = trade_fee_bid_percent
         self._metrics = {m: 0.0 for m in Metrics}
+        self._last_trade_price = None
 
-    def _trade_price(self, tick):
-        return self._prices[tick]
+    def _trade_price(self, tick, action):
+        if hasattr(self, "_prices") and self._prices is not None:
+            return self._prices[tick]
+        else:
+            if action == Actions.Buy:
+                return self._ask[tick]
+            elif action == Actions.Sell:
+                return self._bid[tick]
+            else:
+                raise ValueError("Invalid action")
 
     def _update_max_dd(self, action: Actions, current_tick: int, last_trade_tick: int):
-        last_trade_price = self._trade_price(last_trade_tick)
         if action == Actions.Buy:
             dd = (
-                np.min(self._prices[last_trade_tick:current_tick]) / last_trade_price
+                np.min(self._ask[last_trade_tick:current_tick]) / self._last_trade_price
                 - 1.0
             )
             self._metrics[Metrics.MaxDD] = min(dd, self._metrics[Metrics.MaxDD])
         elif action == Actions.Sell:
             dd = (
                 1.0
-                - np.max(self._prices[last_trade_tick:current_tick]) / last_trade_price
+                - np.max(self._bid[last_trade_tick:current_tick])
+                / self._last_trade_price
             )
             self._metrics[Metrics.MaxDD] = min(dd, self._metrics[Metrics.MaxDD])
         else:
@@ -47,15 +64,18 @@ class RewardCalculator:
 
     # update metrics
     def update(self, action: Actions, current_tick, last_trade_tick):
-        current_price, last_trade_price = self._trade_price(
-            current_tick
-        ), self._trade_price(last_trade_tick)
+        current_price = self._trade_price(current_tick, action)
+
+        if self._last_trade_price is None:
+            self._last_trade_price = current_price
+            return
 
         self._update_max_dd(action, current_tick, last_trade_tick)
+
         if action == Actions.Buy:
-            price_diff = current_price - last_trade_price
+            price_diff = current_price - self._last_trade_price
             pl = price_diff - abs(price_diff) * self._trade_fee_bid_percent
-            returns = pl / last_trade_price + 1.0
+            returns = pl / self._last_trade_price + 1.0
 
             self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
                 self.__welford_update(
@@ -80,7 +100,7 @@ class RewardCalculator:
             self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
             self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
         elif action == Actions.Sell:
-            price_diff = last_trade_price - current_price
+            price_diff = self._last_trade_price - current_price
             pl = price_diff - abs(price_diff) * self._trade_fee_ask_percent
             returns = pl / current_price + 1.0
 
