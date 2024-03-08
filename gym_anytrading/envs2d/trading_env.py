@@ -18,6 +18,8 @@ class TradingEnv(gym.Env, RewardCalculator):
         window_size,
         render_mode=None,
         reward_type=RewardType.Profit,
+        ask_column="Ask",
+        bid_column="Bid",
         trade_fee_ask_percent=0.0,
         trade_fee_bid_percent=0.0,
     ):
@@ -37,8 +39,16 @@ class TradingEnv(gym.Env, RewardCalculator):
         # reward calculator setup
         RewardCalculator.__init__(
             self,
-            ask=self.df.High.iloc[self.window_size :],
-            bid=self.df.Low.iloc[self.window_size :],
+            ask=(
+                self.df[ask_column].iloc[self.window_size :]
+                if hasattr(self.df, ask_column)
+                else None
+            ),
+            bid=(
+                self.df[bid_column].iloc[self.window_size :]
+                if hasattr(self.df, bid_column)
+                else None
+            ),
             trade_fee_ask_percent=trade_fee_ask_percent,
             trade_fee_bid_percent=trade_fee_bid_percent,
         )
