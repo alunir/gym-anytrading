@@ -135,7 +135,7 @@ class RewardCalculator:
             case RewardType.Profit:
                 return self._metrics[Metrics.Profit]
             case RewardType.Returns:
-                return np.exp(self._metrics[Metrics.LogReturns])
+                return np.expm1(self._metrics[Metrics.LogReturns]) * 100  # percentage
             case RewardType.LogReturns:
                 return self._metrics[Metrics.LogReturns]
             case RewardType.WinRate:
