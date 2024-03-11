@@ -34,7 +34,7 @@ class TradingEnv(gym.Env, RewardCalculator):
         self.df = df
         self.window_size = window_size
         self.prices, self.signal_features = self._process_data()
-        self.shape = (len(df.columns), window_size, window_size)
+        self.shape = (window_size, window_size, len(df.columns))
 
         # reward calculator setup
         RewardCalculator.__init__(
