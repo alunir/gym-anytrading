@@ -54,7 +54,9 @@ class CryptoEnv(StocksEnv):
         for batch in tqdm(batches):
             signal_features += [transformer.fit_transform(self.df.loc[batch].T)]
 
-        signal_features = np.array(signal_features)
+        signal_features = np.array(signal_features).reshape(
+            len(batches), self.window_size, self.window_size, -1
+        )
         return prices.astype(np.float32), signal_features.astype(np.float32)
 
     def _calculate_reward(self, action):
