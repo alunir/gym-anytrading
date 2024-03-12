@@ -12,6 +12,8 @@ class StocksEnv(TradingEnv):
         frame_bound,
         render_mode=None,
         reward_type=RewardType.Profit,
+        ask_column="Ask",
+        bid_column="Bid",
         trade_fee_ask_percent=0.005,
         trade_fee_bid_percent=0.01,
     ):
@@ -23,6 +25,8 @@ class StocksEnv(TradingEnv):
             window_size,
             render_mode,
             reward_type,
+            ask_column,
+            bid_column,
             trade_fee_ask_percent,
             trade_fee_bid_percent,
         )

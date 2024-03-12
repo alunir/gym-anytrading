@@ -14,6 +14,8 @@ class CryptoEnv(StocksEnv):
         frame_bound,
         trade_fee=0.0003,
         leverage: float = 1.0,
+        ask_column: str = "Ask",
+        bid_column: str = "Bid",
         render_mode=None,
         reward_type=RewardType.Profit,
     ):
@@ -29,12 +31,15 @@ class CryptoEnv(StocksEnv):
             frame_bound,
             render_mode,
             reward_type,
+            ask_column=ask_column,
+            bid_column=bid_column,
             trade_fee_ask_percent=trade_fee,
             trade_fee_bid_percent=trade_fee,
         )
 
     def _process_data(self):
-        prices = self.df.loc[:, "Close"].to_numpy()
+        prices = self.df.loc[:, "Close"].values[self.window_size :]
+
         # signal_features = self.signal_features.T
         signal_features = self.df.to_numpy()
 
