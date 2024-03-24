@@ -108,7 +108,7 @@ class RewardCalculator:
             # Action.Sell at the current price. Later then Position.Short
             price_diff = current_price - self._last_trade_price
             pl = price_diff - abs(price_diff) * self._trade_fee_ask_percent
-            returns = pl / current_price + 1.0
+            returns = pl / self._last_trade_price + 1.0
 
             self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
                 self.__welford_update(
