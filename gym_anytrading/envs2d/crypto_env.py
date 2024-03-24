@@ -66,7 +66,7 @@ class CryptoEnv(StocksEnv):
             action != Actions.Buy.value and self._position == Positions.Long
         ):
             # calculate metrics
-            self.update(Actions(action), self._current_tick, self._last_trade_tick)
+            self.update(self._position, self._current_tick, self._last_trade_tick)
 
             # calculate reward
             step_reward = self.reward(self._reward_type)

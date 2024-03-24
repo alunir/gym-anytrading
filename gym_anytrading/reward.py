@@ -1,4 +1,4 @@
-from .typedefs import RewardType, Actions, Metrics
+from .typedefs import RewardType, Actions, Metrics, Positions
 
 import numpy as np
 
@@ -24,25 +24,29 @@ class RewardCalculator:
         self._metrics = {m: 0.0 for m in Metrics}
         self._last_trade_price = None
 
-    def _trade_price(self, tick, action):
+    def _trade_price(self, tick, position):
         if hasattr(self, "_prices") and self._prices is not None:
             return self._prices[tick]
         else:
-            if action == Actions.Buy:
+            if position == Positions.Short:
+                # current position: short -> Action.Buy -> ask
                 return self._ask[tick]
-            elif action == Actions.Sell:
+            elif position == Positions.Long:
+                # current position: long -> Action.Sell > bid
                 return self._bid[tick]
             else:
-                raise ValueError("Invalid action")
+                raise ValueError("Invalid position")
 
-    def _update_max_dd(self, action: Actions, current_tick: int, last_trade_tick: int):
-        if action == Actions.Buy:
+    def _update_max_dd(
+        self, position: Positions, current_tick: int, last_trade_tick: int
+    ):
+        if position == Positions.Short:
             dd = (
                 np.min(self._ask[last_trade_tick:current_tick]) / self._last_trade_price
                 - 1.0
             )
             self._metrics[Metrics.MaxDD] = min(dd, self._metrics[Metrics.MaxDD])
-        elif action == Actions.Sell:
+        elif position == Positions.Long:
             dd = (
                 1.0
                 - np.max(self._bid[last_trade_tick:current_tick])
@@ -50,7 +54,7 @@ class RewardCalculator:
             )
             self._metrics[Metrics.MaxDD] = min(dd, self._metrics[Metrics.MaxDD])
         else:
-            raise ValueError("Invalid action")
+            raise ValueError("Invalid position")
 
     def reset(self):
         self._metrics = {m: 0.0 for m in Metrics}
@@ -63,16 +67,16 @@ class RewardCalculator:
         return tmp, var
 
     # update metrics
-    def update(self, action: Actions, current_tick, last_trade_tick):
-        current_price = self._trade_price(current_tick, action)
+    def update(self, position: Positions, current_tick, last_trade_tick):
+        current_price = self._trade_price(current_tick, position)
 
         if self._last_trade_price is None:
             self._last_trade_price = current_price
             return
 
-        self._update_max_dd(action, current_tick, last_trade_tick)
+        self._update_max_dd(position, current_tick, last_trade_tick)
 
-        if action == Actions.Buy:
+        if position == Positions.Short:
             price_diff = current_price - self._last_trade_price
             pl = price_diff - abs(price_diff) * self._trade_fee_bid_percent
             returns = pl / self._last_trade_price + 1.0
@@ -99,7 +103,7 @@ class RewardCalculator:
             self._metrics[Metrics.Trades] += 1
             self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
             self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
-        elif action == Actions.Sell:
+        elif position == Positions.Long:
             price_diff = self._last_trade_price - current_price
             pl = price_diff - abs(price_diff) * self._trade_fee_ask_percent
             returns = pl / current_price + 1.0
@@ -127,7 +131,7 @@ class RewardCalculator:
             self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
             self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
         else:
-            raise ValueError(f"Invalid action {action}")
+            raise ValueError(f"Invalid position {position}")
 
     # calculate reward based on metrics
     def reward(self, reward_type: RewardType) -> float | None:
