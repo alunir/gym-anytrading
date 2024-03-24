@@ -77,7 +77,8 @@ class RewardCalculator:
         self._update_max_dd(position, current_tick, last_trade_tick)
 
         if position == Positions.Short:
-            price_diff = current_price - self._last_trade_price
+            # Action.Buy at the current price. Later then Position.Long
+            price_diff = self._last_trade_price - current_price
             pl = price_diff - abs(price_diff) * self._trade_fee_bid_percent
             returns = pl / self._last_trade_price + 1.0
 
@@ -104,7 +105,8 @@ class RewardCalculator:
             self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
             self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
         elif position == Positions.Long:
-            price_diff = self._last_trade_price - current_price
+            # Action.Sell at the current price. Later then Position.Short
+            price_diff = current_price - self._last_trade_price
             pl = price_diff - abs(price_diff) * self._trade_fee_ask_percent
             returns = pl / current_price + 1.0
 
