@@ -39,16 +39,8 @@ class TradingEnv(gym.Env):
         # reward calculator setup
         self._reward_calculator = RewardCalculator(
             prices=self.prices,
-            ask=(
-                self.df[ask_column].iloc[self.window_size :]
-                if hasattr(self.df, ask_column)
-                else None
-            ),
-            bid=(
-                self.df[bid_column].iloc[self.window_size :]
-                if hasattr(self.df, bid_column)
-                else None
-            ),
+            ask=(self.df[ask_column] if hasattr(self.df, ask_column) else None),
+            bid=(self.df[bid_column] if hasattr(self.df, bid_column) else None),
             trade_fee_ask_percent=trade_fee_ask_percent,
             trade_fee_bid_percent=trade_fee_bid_percent,
         )
@@ -66,7 +58,7 @@ class TradingEnv(gym.Env):
         )
 
         # episode
-        self._start_tick = self.window_size
+        self._start_tick = self.window_size - 1
         self._end_tick = len(self.prices) - 1
         self._truncated = None
         self._current_tick = None

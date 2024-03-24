@@ -38,10 +38,10 @@ class CryptoEnv(StocksEnv):
         )
 
     def _process_data(self):
-        prices = self.df.loc[:, "Close"].values[self.window_size :]
+        prices = self.df.loc[:, "Close"].values
 
         # signal_features = self.signal_features.T
-        signal_features = self.df.to_numpy()
+        signal_features = self.df.values
 
         return prices.astype(np.float32), signal_features.astype(np.float32)
 
