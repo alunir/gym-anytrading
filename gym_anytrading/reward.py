@@ -1,4 +1,4 @@
-from .typedefs import RewardType, Actions, Metrics, Positions
+from .typedefs import RewardType, Metrics, Positions
 
 import numpy as np
 

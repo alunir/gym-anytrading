@@ -8,7 +8,7 @@ from ..typedefs import Positions, Actions, RewardType
 from ..reward import RewardCalculator
 
 
-class TradingEnv(gym.Env, RewardCalculator):
+class TradingEnv(gym.Env):
 
     metadata = {"render_modes": ["human"], "render_fps": 3}
 
@@ -37,8 +37,7 @@ class TradingEnv(gym.Env, RewardCalculator):
         self.shape = (window_size, window_size, len(df.columns))
 
         # reward calculator setup
-        RewardCalculator.__init__(
-            self,
+        self._reward_calculator = RewardCalculator(
             ask=(
                 self.df[ask_column].iloc[self.window_size :]
                 if hasattr(self.df, ask_column)
@@ -80,7 +79,7 @@ class TradingEnv(gym.Env, RewardCalculator):
 
     def reset(self, seed=None, options=None):
         gym.Env.reset(self, seed=seed, options=options)
-        RewardCalculator.reset(self)
+        self._reward_calculator.reset()
 
         self.action_space.seed(
             int((self.np_random.uniform(0, seed if seed is not None else 1)))
@@ -136,7 +135,7 @@ class TradingEnv(gym.Env, RewardCalculator):
         return observation, step_reward, False, self._truncated, info
 
     def _get_info(self):
-        return self.get_info()
+        return self._reward_calculator.get_info()
 
     def _get_observation(self):
         return self.signal_features[

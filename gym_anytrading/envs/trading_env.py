@@ -8,7 +8,7 @@ from ..typedefs import Positions, Actions, RewardType
 from ..reward import RewardCalculator
 
 
-class TradingEnv(gym.Env, RewardCalculator):
+class TradingEnv(gym.Env):
 
     metadata = {"render_modes": ["human"], "render_fps": 3}
 
@@ -37,8 +37,7 @@ class TradingEnv(gym.Env, RewardCalculator):
         self.shape = (window_size, len(df.columns))
 
         # reward calculator setup
-        RewardCalculator.__init__(
-            self,
+        self._reward_calculator = RewardCalculator(
             prices=self.prices,
             ask=(
                 self.df[ask_column].iloc[self.window_size :]
@@ -74,14 +73,13 @@ class TradingEnv(gym.Env, RewardCalculator):
         self._last_trade_tick = None
         self._position = None
         self._position_history = None
-        # self._total_reward = None
         # self._total_profit = None
         self._first_rendering = None
         self.history = None
 
     def reset(self, seed=None, options=None):
         gym.Env.reset(self, seed=seed, options=options)
-        RewardCalculator.reset(self)
+        self._reward_calculator.reset()
 
         self.action_space.seed(
             int((self.np_random.uniform(0, seed if seed is not None else 1)))
@@ -112,7 +110,6 @@ class TradingEnv(gym.Env, RewardCalculator):
             self._truncated = True
 
         step_reward = self._calculate_reward(action)
-        # self._total_reward += step_reward
 
         # self._update_profit(action)
 
@@ -137,7 +134,7 @@ class TradingEnv(gym.Env, RewardCalculator):
         return observation, step_reward, False, self._truncated, info
 
     def _get_info(self):
-        return self.get_info()
+        return self._reward_calculator.get_info()
 
     def _get_observation(self):
         return self.signal_features[
@@ -209,9 +206,9 @@ class TradingEnv(gym.Env, RewardCalculator):
             plt.title(title)
 
         plt.suptitle(
-            "Total Reward: %.6f" % self.reward(self._reward_type)
+            "Total Reward: %.6f" % self._reward_calculator.reward(self._reward_type)
             + " ~ "
-            + "Total Profit: %.6f" % self.reward(RewardType.Profit)
+            + "Total Profit: %.6f" % self._reward_calculator.reward(RewardType.Profit)
         )
 
     def close(self):

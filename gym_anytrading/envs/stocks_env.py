@@ -56,10 +56,12 @@ class StocksEnv(TradingEnv):
         if trade:
 
             # calculate metrics
-            self.update(self._position, self._current_tick, self._last_trade_tick)
+            self._reward_calculator.update(
+                self._position, self._current_tick, self._last_trade_tick
+            )
 
             # calculate reward
-            step_reward = self.reward(self._reward_type)
+            step_reward = self._reward_calculator.reward(self._reward_type)
 
             # current_price = self.prices[self._current_tick]
             # last_trade_price = self.prices[self._last_trade_tick]

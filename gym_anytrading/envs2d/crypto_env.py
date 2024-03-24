@@ -65,11 +65,17 @@ class CryptoEnv(StocksEnv):
         if (action != Actions.Sell.value and self._position == Positions.Short) or (
             action != Actions.Buy.value and self._position == Positions.Long
         ):
+            current_reward = self._reward_calculator.reward(self._reward_type)
+
             # calculate metrics
-            self.update(self._position, self._current_tick, self._last_trade_tick)
+            self._reward_calculator.update(
+                self._position, self._current_tick, self._last_trade_tick
+            )
 
             # calculate reward
-            step_reward = self.reward(self._reward_type)
+            updated_reward = self._reward_calculator.reward(self._reward_type)
+
+            step_reward = updated_reward - current_reward
 
             self._epoch = self.df.index[self._current_tick]
 
