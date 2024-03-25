@@ -29,10 +29,10 @@ class RewardCalculator:
             return self._prices[tick]
         else:
             if position == Positions.Short:
-                # current position: short -> Action.Buy -> ask
+                # current position: short -> Action should be Buy at the ask price
                 return self._ask[tick]
             elif position == Positions.Long:
-                # current position: long -> Action.Sell > bid
+                # current position: long -> Action should be Sell at the bid price
                 return self._bid[tick]
             else:
                 raise ValueError("Invalid position")
@@ -134,6 +134,8 @@ class RewardCalculator:
             self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
         else:
             raise ValueError(f"Invalid position {position}")
+
+        self._last_trade_price = current_price
 
     # calculate reward based on metrics
     def reward(self, reward_type: RewardType) -> float | None:
