@@ -29,6 +29,9 @@ register(
     entry_point="gym_anytrading.envs:CryptoEnv",
     kwargs={
         "df": deepcopy(datasets.CRYPTO_ETHUSDT_5M),
+        "ask": deepcopy(datasets.CRYPTO_ETHUSDT_5M).High,
+        "bid": deepcopy(datasets.CRYPTO_ETHUSDT_5M).Low,
+        "prices": deepcopy(datasets.CRYPTO_ETHUSDT_5M).Close,
         "window_size": 24,
         "frame_bound": (24, len(datasets.CRYPTO_ETHUSDT_5M)),
         "trade_fee": 0.0003,
@@ -40,6 +43,9 @@ register(
     entry_point="gym_anytrading.envs2d:CryptoEnv",
     kwargs={
         "df": deepcopy(datasets.CRYPTO_ETHUSDT_5M),
+        "ask": deepcopy(datasets.CRYPTO_ETHUSDT_5M).High,
+        "bid": deepcopy(datasets.CRYPTO_ETHUSDT_5M).Low,
+        "prices": deepcopy(datasets.CRYPTO_ETHUSDT_5M).Close,
         "window_size": 32,
         "frame_bound": (32, len(datasets.CRYPTO_ETHUSDT_5M)),
         "trade_fee": 0.0003,
