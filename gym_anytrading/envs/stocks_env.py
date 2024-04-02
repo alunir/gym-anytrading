@@ -1,38 +1,48 @@
+from typing import Tuple
+
+import pandas as pd
 import numpy as np
 
 from .trading_env import TradingEnv, Actions, Positions, RewardType
+
+
+INF = 1e10
 
 
 class StocksEnv(TradingEnv):
 
     def __init__(
         self,
+        prices: pd.Series,
+        ask: pd.Series,
+        bid: pd.Series,
         df,
         window_size,
         frame_bound,
         render_mode=None,
         reward_type=RewardType.Profit,
-        ask_column="Ask",
-        bid_column="Bid",
         trade_fee_ask_percent=0.005,
         trade_fee_bid_percent=0.01,
+        box_range: Tuple[float, float] = (-INF, INF),
     ):
         assert len(frame_bound) == 2
 
         self.frame_bound = frame_bound
         super().__init__(
+            prices,
+            ask,
+            bid,
             df,
             window_size,
             render_mode,
             reward_type,
-            ask_column,
-            bid_column,
             trade_fee_ask_percent,
             trade_fee_bid_percent,
+            box_range=box_range,
         )
 
     def _process_data(self):
-        prices = self.df.loc[:, "Close"].to_numpy()
+        prices = self.prices.values
 
         prices[
             self.frame_bound[0] - self.window_size

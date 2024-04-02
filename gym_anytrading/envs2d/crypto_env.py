@@ -2,25 +2,31 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from typing import Tuple
+
 from .stocks_env import StocksEnv
 from ..typedefs import Actions, Positions, RewardType
 
 from pyts.image import RecurrencePlot
+
+INF = 1e10
 
 
 class CryptoEnv(StocksEnv):
 
     def __init__(
         self,
+        prices: pd.Series,
+        ask: pd.Series,
+        bid: pd.Series,
         df: pd.DataFrame,
         window_size: int,
         frame_bound,
         trade_fee=0.0003,
         leverage: float = 1.0,
-        ask_column: str = "Ask",
-        bid_column: str = "Bid",
         render_mode=None,
         reward_type=RewardType.Profit,
+        box_range: Tuple[float, float] = (-INF, INF),
     ):
         assert len(frame_bound) == 2
 
@@ -29,19 +35,21 @@ class CryptoEnv(StocksEnv):
         self.frame_bound = frame_bound
         self.leverage = leverage  # Forex: 10000 [Unit]. Crypto: leverage etc...
         super().__init__(
+            prices,
+            ask,
+            bid,
             df,
             window_size,
             frame_bound,
             render_mode,
             reward_type,
-            ask_column=ask_column,
-            bid_column=bid_column,
             trade_fee_ask_percent=trade_fee,
             trade_fee_bid_percent=trade_fee,
+            box_range=box_range,
         )
 
     def _process_data(self):
-        prices = self.df.loc[:, "Close"].values[self.window_size :]
+        prices = self.prices.values[self.window_size :]
 
         batches = [
             [*self.df.index[i - self.window_size : i]]

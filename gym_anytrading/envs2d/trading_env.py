@@ -1,11 +1,16 @@
 from time import time
 
+from typing import Tuple
+
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 import gymnasium as gym
 from ..typedefs import Positions, Actions, RewardType
 from ..reward import RewardCalculator
+
+INF = 1e10
 
 
 class TradingEnv(gym.Env):
@@ -14,14 +19,16 @@ class TradingEnv(gym.Env):
 
     def __init__(
         self,
-        df,
+        prices: pd.Series,
+        ask: pd.Series,
+        bid: pd.Series,
+        df: pd.DataFrame,
         window_size,
         render_mode=None,
         reward_type=RewardType.Profit,
-        ask_column="Ask",
-        bid_column="Bid",
         trade_fee_ask_percent=0.0,
         trade_fee_bid_percent=0.0,
+        box_range: Tuple[float, float] = (-INF, INF),
     ):
         assert df.ndim == 2
         assert render_mode is None or render_mode in self.metadata["render_modes"]
@@ -31,23 +38,16 @@ class TradingEnv(gym.Env):
         self._trade_fee_ask_percent = trade_fee_ask_percent
         self._trade_fee_bid_percent = trade_fee_bid_percent
 
-        self.df = df
+        self.prices = prices
+        self.df = df[df.columns[~df.columns.isin([prices.name, ask.name, bid.name])]]
         self.window_size = window_size
         self.prices, self.signal_features = self._process_data()
-        self.shape = (window_size, window_size, len(df.columns))
+        self.shape = (window_size, window_size, len(self.df.columns))
 
         # reward calculator setup
         self._reward_calculator = RewardCalculator(
-            ask=(
-                self.df[ask_column].iloc[self.window_size :]
-                if hasattr(self.df, ask_column)
-                else None
-            ),
-            bid=(
-                self.df[bid_column].iloc[self.window_size :]
-                if hasattr(self.df, bid_column)
-                else None
-            ),
+            ask=(ask.iloc[self.window_size :]),
+            bid=(bid.iloc[self.window_size :]),
             trade_fee_ask_percent=trade_fee_ask_percent,
             trade_fee_bid_percent=trade_fee_bid_percent,
         )
@@ -56,10 +56,10 @@ class TradingEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(
             len([Actions.Buy, Actions.Sell]), start=Actions.Buy.value
         )
-        INF = 1e10
+
         self.observation_space = gym.spaces.Box(
-            low=-INF,
-            high=INF,
+            low=box_range[0],
+            high=box_range[1],
             shape=self.shape,
             dtype=np.float32,
         )
