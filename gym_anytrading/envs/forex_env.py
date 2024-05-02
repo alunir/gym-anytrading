@@ -43,7 +43,7 @@ class ForexEnv(TradingEnv):
 
         return prices.astype(np.float32), signal_features.astype(np.float32)
 
-    def _calculate_reward(self, action):
+    def _calculate_reward(self, action: Actions):
         step_reward = 0  # pip
 
         trade = False
@@ -64,7 +64,7 @@ class ForexEnv(TradingEnv):
 
         return step_reward
 
-    def _update_profit(self, action):
+    def _update_profit(self, action: Actions):
         trade = False
         if (action == Actions.Buy.value and self._position == Positions.Short) or (
             action == Actions.Sell.value and self._position == Positions.Long

@@ -1,32 +1,66 @@
 from time import time
 
+from typing import Tuple
+
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 import gymnasium as gym
-from ..typedefs import Actions, Positions
+from ..typedefs import RewardType, Position
+from ..reward import RewardCalculator
+
+
+INF = 1e10
 
 
 class TradingEnv(gym.Env):
 
     metadata = {"render_modes": ["human"], "render_fps": 3}
 
-    def __init__(self, df: np.array, window_size, render_mode=None):
-        assert len(df.shape) == 2
+    def __init__(
+        self,
+        prices: pd.Series,
+        ask: pd.Series,
+        bid: pd.Series,
+        df: pd.DataFrame,
+        window_size,
+        render_mode=None,
+        reward_type=RewardType.LogReturns,
+        trade_fee_ask_percent=0.0,
+        trade_fee_bid_percent=0.0,
+        box_range: Tuple[float, float] = (-INF, INF),
+    ):
+        assert df.ndim == 2
         assert render_mode is None or render_mode in self.metadata["render_modes"]
+        assert box_range[0] < box_range[1], "box_range should be a tuple (low, high)"
 
         self.render_mode = render_mode
+        self._reward_type = reward_type
+        self._trade_fee_ask_percent = trade_fee_ask_percent
+        self._trade_fee_bid_percent = trade_fee_bid_percent
 
-        self.df = df
+        self.prices = prices
+        self.df = df[df.columns[~df.columns.isin([prices.name, ask.name, bid.name])]]
         self.window_size = window_size
         self.prices, self.signal_features = self._process_data()
-        self.shape = (window_size, self.signal_features.shape[1])
+        self.shape = (window_size, len(self.df.columns))
+
+        # reward calculator setup
+        self._reward_calculator = RewardCalculator(
+            prices=self.prices,
+            ask=ask,
+            bid=bid,
+            trade_fee_ask_percent=trade_fee_ask_percent,
+            trade_fee_bid_percent=trade_fee_bid_percent,
+        )
 
         # spaces
-        self.action_space = gym.spaces.Discrete(
-            len([Actions.Buy, Actions.Sell, Actions.Unwind]), start=Actions.Buy.value
+        self.action_space = gym.spaces.Box(
+            low=-1,
+            high=1,
+            dtype=np.float32,
         )
-        INF = 1e10
         self.observation_space = gym.spaces.Box(
             low=-INF,
             high=INF,
@@ -35,23 +69,27 @@ class TradingEnv(gym.Env):
         )
 
         # episode
-        self._start_tick = self.window_size
+        self._start_tick = self.window_size - 1
         self._end_tick = len(self.prices) - 1
         self._truncated = None
         self._current_tick = None
         self._last_trade_tick = None
+
         self._position = None
         self._position_history = None
-        self._total_reward = None
-        self._total_profit = None
+
+        # self._total_reward = None
+        # self._total_profit = None
         self._first_rendering = None
         self.history = None
 
-        self._epoch = None
-        self._max_dd = -1e10
+        # self._epoch = None
+        # self._max_dd = -1e10
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed, options=options)
+        self._reward_calculator.reset()
+
         self.action_space.seed(
             int((self.np_random.uniform(0, seed if seed is not None else 1)))
         )
@@ -59,10 +97,12 @@ class TradingEnv(gym.Env):
         self._truncated = False
         self._current_tick = self._start_tick
         self._last_trade_tick = self._current_tick - 1
-        self._position = Positions.Neutral
+        self._position: Position = Position(0.0)
         self._position_history = (self.window_size * [None]) + [self._position]
-        self._total_reward = 0.0
-        self._total_profit = 1.0  # unit
+
+        # self._total_reward = 0.0
+        # self._total_profit = 1.0  # unit
+
         self._first_rendering = True
         self.history = {}
 
@@ -82,30 +122,27 @@ class TradingEnv(gym.Env):
         Returns:
             _type_: _description_
         """
-
         self._truncated = False
         self._current_tick += 1
 
         if self._current_tick == self._end_tick:
             self._truncated = True
 
-        step_reward = self._calculate_reward(action)
-        self._total_reward += step_reward
+        # Ensure action is within the proper range
+        if self._position + action > 1:
+            action = 1 - self._position
+        elif self._position + action < -1:
+            action = -1 - self._position
+        # if abs(self._position + action) > 1:
+        #     # if the action would bring the position out of allowed range, reject the action
+        #     action = 0  # No change in position
 
-        self._update_profit(action)
-
-        if action == Actions.Buy.value:
-            _next_position = Positions.Long
-        elif action == Actions.Sell.value:
-            _next_position = Positions.Short
-        elif action == Actions.Unwind.value:
-            _next_position = Positions.Neutral
-        else:
-            raise ValueError(f"Invalid action: {action}")
-
-        if _next_position != self._position:
+        _next_position = self._position + action
+        if action != 0.0:
             self._last_trade_tick = self._current_tick
             self._position = _next_position
+
+        step_reward = self._calculate_reward(action)
 
         self._position_history.append(self._position)
         observation = self._get_observation()
@@ -118,14 +155,7 @@ class TradingEnv(gym.Env):
         return observation, step_reward, False, self._truncated, info
 
     def _get_info(self):
-        return dict(
-            total_reward=self._total_reward,
-            total_profit=self._total_profit,
-            position=self._position,
-            max_dd=self._max_dd,
-            count=self._current_tick,
-            epoch=self._epoch,
-        )
+        return self._reward_calculator.get_info()
 
     def _get_observation(self):
         return self.signal_features[
@@ -146,9 +176,9 @@ class TradingEnv(gym.Env):
 
         def _plot_position(position, tick):
             color = None
-            if position == Positions.Short:
+            if position == self.PositionsN.is_short():
                 color = "red"
-            elif position == Positions.Long:
+            elif position == self.PositionsN.is_long():
                 color = "green"
             if color:
                 plt.scatter(tick, self.prices[tick], color=color)
@@ -185,9 +215,9 @@ class TradingEnv(gym.Env):
         short_ticks = []
         long_ticks = []
         for i, tick in enumerate(window_ticks):
-            if self._position_history[i] == Positions.Short:
+            if self._position_history[i] == self.PositionsN.is_short():
                 short_ticks.append(tick)
-            elif self._position_history[i] == Positions.Long:
+            elif self._position_history[i] == self.Positions.is_long():
                 long_ticks.append(tick)
 
         plt.plot(short_ticks, self.prices[short_ticks], "ro")
@@ -217,8 +247,8 @@ class TradingEnv(gym.Env):
     def _calculate_reward(self, action):
         raise NotImplementedError
 
-    def _update_profit(self, action):
-        raise NotImplementedError
+    # def _update_profit(self, action):
+    #     raise NotImplementedError
 
-    def max_possible_profit(self):  # trade fees are ignored
-        raise NotImplementedError
+    # def max_possible_profit(self):  # trade fees are ignored
+    #     raise NotImplementedError

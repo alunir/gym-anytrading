@@ -2,7 +2,8 @@ from gymnasium.envs.registration import register
 from copy import deepcopy
 
 from . import datasets
-from .typedefs import Actions, Positions, RewardType
+from .typedefs import *
+
 
 register(
     id="forex-v0",
@@ -48,6 +49,20 @@ register(
         "prices": deepcopy(datasets.CRYPTO_ETHUSDT_5M).Close,
         "window_size": 32,
         "frame_bound": (32, len(datasets.CRYPTO_ETHUSDT_5M)),
+        "trade_fee": 0.0003,
+    },
+)
+
+register(
+    id="crypto-v2",
+    entry_point="gym_anytrading.envsC:CryptoEnv",
+    kwargs={
+        "df": deepcopy(datasets.CRYPTO_ETHUSDT_5M),
+        "ask": deepcopy(datasets.CRYPTO_ETHUSDT_5M).High,
+        "bid": deepcopy(datasets.CRYPTO_ETHUSDT_5M).Low,
+        "prices": deepcopy(datasets.CRYPTO_ETHUSDT_5M).Close,
+        "window_size": 24,
+        "frame_bound": (24, len(datasets.CRYPTO_ETHUSDT_5M)),
         "trade_fee": 0.0003,
     },
 )

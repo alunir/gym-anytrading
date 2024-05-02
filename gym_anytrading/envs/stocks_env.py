@@ -54,7 +54,7 @@ class StocksEnv(TradingEnv):
 
         return prices.astype(np.float32), signal_features.astype(np.float32)
 
-    def _calculate_reward(self, action):
+    def _calculate_reward(self, action: Actions):
         step_reward = 0
 
         trade = False

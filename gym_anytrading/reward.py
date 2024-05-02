@@ -1,4 +1,4 @@
-from .typedefs import RewardType, Metrics, Positions
+from .typedefs import RewardType, Metrics, OrderAction, Position
 
 import numpy as np
 
@@ -24,29 +24,30 @@ class RewardCalculator:
         self._metrics = {m: 0.0 for m in Metrics}
         self._last_trade_price = None
 
-    def _trade_price(self, tick, position):
+    def _trade_price(self, tick, action: OrderAction):
         if hasattr(self, "_prices") and self._prices is not None:
             return self._prices[tick]
         else:
-            if position == Positions.Short:
+            if action > 0.0:
                 # current position: short -> Action should be Buy at the ask price
                 return self._ask[tick]
-            elif position == Positions.Long:
+            elif action < 0.0:
                 # current position: long -> Action should be Sell at the bid price
                 return self._bid[tick]
             else:
-                raise ValueError("Invalid position")
+                # Neutral
+                return (self._ask[tick] + self._bid[tick]) / 2
 
     def _update_max_dd(
-        self, position: Positions, current_tick: int, last_trade_tick: int
+        self, action: OrderAction, current_tick: int, last_trade_tick: int
     ):
-        if position == Positions.Short:
+        if action > 0.0:
             dd = (
                 np.min(self._ask[last_trade_tick:current_tick]) / self._last_trade_price
                 - 1.0
             )
             self._metrics[Metrics.MaxDD] = min(dd, self._metrics[Metrics.MaxDD])
-        elif position == Positions.Long:
+        elif action < 0.0:
             dd = (
                 1.0
                 - np.max(self._bid[last_trade_tick:current_tick])
@@ -67,73 +68,58 @@ class RewardCalculator:
         return tmp, var
 
     # update metrics
-    def update(self, position: Positions, current_tick, last_trade_tick):
-        current_price = self._trade_price(current_tick, position)
+    def update(
+        self, position: Position, action: OrderAction, current_tick, last_trade_tick
+    ):
+        # Entry with no position then no need to update the metrics
+        if position == 0.0:
+            return
+
+        current_price = self._trade_price(current_tick, action)
 
         if self._last_trade_price is None:
             self._last_trade_price = current_price
             return
 
-        self._update_max_dd(position, current_tick, last_trade_tick)
+        self._update_max_dd(action, current_tick, last_trade_tick)
 
-        if position == Positions.Short:
+        if position < 0.0:
             # Action.Buy at the current price. Later then Position.Long
             price_diff = self._last_trade_price - current_price
             pl = price_diff - abs(price_diff) * self._trade_fee_bid_percent
-            returns = pl / self._last_trade_price + 1.0
 
-            self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
-                self.__welford_update(
-                    self._metrics[Metrics.MeanPL],
-                    self._metrics[Metrics.VarPL],
-                    self._metrics[Metrics.Trades],
-                    pl,
-                )
-            )
-            self._metrics[Metrics.MeanReturns], self._metrics[Metrics.VarReturns] = (
-                self.__welford_update(
-                    self._metrics[Metrics.MeanReturns],
-                    self._metrics[Metrics.VarReturns],
-                    self._metrics[Metrics.Trades],
-                    returns,
-                )
-            )
-            self._metrics[Metrics.LogReturns] += np.log(returns)
-            self._metrics[Metrics.Profit] += max(pl, 0)
-            self._metrics[Metrics.Loss] += min(pl, 0)
-            self._metrics[Metrics.Trades] += 1
-            self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
-            self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
-        elif position == Positions.Long:
+        elif position > 0.0:
             # Action.Sell at the current price. Later then Position.Short
             price_diff = current_price - self._last_trade_price
             pl = price_diff - abs(price_diff) * self._trade_fee_ask_percent
-            returns = pl / self._last_trade_price + 1.0
 
-            self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
-                self.__welford_update(
-                    self._metrics[Metrics.MeanPL],
-                    self._metrics[Metrics.VarPL],
-                    self._metrics[Metrics.Trades],
-                    pl,
-                )
+        pl *= min(abs(position), abs(action))
+
+        returns = pl / self._last_trade_price + 1.0
+
+        self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
+            self.__welford_update(
+                self._metrics[Metrics.MeanPL],
+                self._metrics[Metrics.VarPL],
+                self._metrics[Metrics.Trades],
+                pl,
             )
-            self._metrics[Metrics.MeanReturns], self._metrics[Metrics.VarReturns] = (
-                self.__welford_update(
-                    self._metrics[Metrics.MeanReturns],
-                    self._metrics[Metrics.VarReturns],
-                    self._metrics[Metrics.Trades],
-                    returns,
-                )
+        )
+        self._metrics[Metrics.MeanReturns], self._metrics[Metrics.VarReturns] = (
+            self.__welford_update(
+                self._metrics[Metrics.MeanReturns],
+                self._metrics[Metrics.VarReturns],
+                self._metrics[Metrics.Trades],
+                returns,
             )
-            self._metrics[Metrics.LogReturns] += np.log(returns)
-            self._metrics[Metrics.Profit] += max(pl, 0)
-            self._metrics[Metrics.Loss] += min(pl, 0)
-            self._metrics[Metrics.Trades] += 1
-            self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
-            self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
-        else:
-            raise ValueError(f"Invalid position {position}")
+        )
+
+        self._metrics[Metrics.LogReturns] += np.log(returns)
+        self._metrics[Metrics.Profit] += max(pl, 0)
+        self._metrics[Metrics.Loss] += min(pl, 0)
+        self._metrics[Metrics.Trades] += 1
+        self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
+        self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
 
         self._last_trade_price = current_price
 

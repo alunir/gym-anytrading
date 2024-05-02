@@ -1,12 +1,33 @@
+from typing import NewType
 from enum import Enum, auto
 
 
+class PositionsBase:
+    def is_long(self):
+        raise NotImplementedError
+
+    def is_short(self):
+        raise NotADirectoryError
+
+
+OrderAction = NewType("OrderAction", float)  # Bet size probability [-1, 1]
+Position = NewType("Position", float)  # Position size [-1, 1]
+
+
+# Duplicate of OrderAction
 class Actions(Enum):
     Buy = 0
     Sell = 1
     Unwind = 2
 
+    def is_buy(self):
+        return self == Actions.Buy
 
+    def is_sell(self):
+        return self == Actions.Sell
+
+
+# Duplicate of Position
 class Positions(Enum):
     Long = 0
     Short = 1
@@ -19,6 +40,12 @@ class Positions(Enum):
             return Positions.Long
         else:
             raise ValueError("Invalid opposite because of Neutral")
+
+    def is_long(self):
+        return self == Positions.Long
+
+    def is_short(self):
+        return self == Positions.Short
 
 
 # 報酬計算に試用する統計情報

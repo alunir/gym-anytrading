@@ -5,7 +5,7 @@ from tqdm import tqdm
 from typing import Tuple
 
 from .stocks_env import StocksEnv
-from ..typedefs import Actions, Positions, RewardType
+from ..typedefs import Actions, Positions, RewardType, OrderAction, Position
 
 from pyts.image import RecurrencePlot
 
@@ -70,14 +70,17 @@ class CryptoEnv(StocksEnv):
     def _calculate_reward(self, action):
         step_reward = 0.0  # pip
 
-        if (action != Actions.Sell.value and self._position == Positions.Short) or (
-            action != Actions.Buy.value and self._position == Positions.Long
+        order_action = OrderAction(-2 * action + 1)
+        position_value = Position(-2 * self._position.value + 1)
+
+        if (order_action >= 0.0 and position_value < 0.0) or (
+            order_action <= 0.0 and position_value > 0.0
         ):
             current_reward = self._reward_calculator.reward(self._reward_type)
 
             # calculate metrics
             self._reward_calculator.update(
-                self._position, self._current_tick, self._last_trade_tick
+                position_value, order_action, self._current_tick, self._last_trade_tick
             )
 
             # calculate reward
