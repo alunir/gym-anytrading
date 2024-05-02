@@ -22,12 +22,10 @@ class CryptoEnv(StocksEnv):
         trade_fee=0.0003,
         leverage: float = 1.0,
         render_mode=None,
-        reward_type=RewardType.Profit,
+        reward_type=RewardType.LogReturns,
         box_range: Tuple[float, float] = (-INF, INF),
     ):
         assert len(frame_bound) == 2
-
-        # self.signal_features = signal_features
 
         self.frame_bound = frame_bound
         self.leverage = leverage  # Forex: 10000 [Unit]. Crypto: leverage etc...

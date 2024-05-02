@@ -25,7 +25,7 @@ class TradingEnv(gym.Env):
         df: pd.DataFrame,
         window_size,
         render_mode=None,
-        reward_type=RewardType.Profit,
+        reward_type=RewardType.LogReturns,
         trade_fee_ask_percent=0.0,
         trade_fee_bid_percent=0.0,
         box_range: Tuple[float, float] = (-INF, INF),
