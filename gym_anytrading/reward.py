@@ -71,14 +71,14 @@ class RewardCalculator:
     def update(
         self, position: Position, action: OrderAction, current_tick, last_trade_tick
     ):
-        # Entry with no position then no need to update the metrics
-        if position == 0.0:
-            return
-
         current_price = self._trade_price(current_tick, action)
 
         if self._last_trade_price is None:
             self._last_trade_price = current_price
+            return
+
+        # Entry with no position then no need to update the metrics
+        if position == 0.0:
             return
 
         self._update_max_dd(action, current_tick, last_trade_tick)
