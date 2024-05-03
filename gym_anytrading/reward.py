@@ -225,6 +225,6 @@ class RewardCalculator:
                 raise NotImplementedError
 
     def get_info(self):
-        return {m.name: self._metrics[m] for m in Metrics} | {
-            rt.name: self.reward(rt) for rt in RewardType
+        return {m.name: float(self._metrics[m]) for m in Metrics} | {
+            rt.name: float(self.reward(rt)) for rt in RewardType
         }
