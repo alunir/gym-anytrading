@@ -57,6 +57,8 @@ class CryptoEnv(TradingEnv):
         return prices.astype(np.float32), signal_features.astype(np.float32)
 
     def _calculate_reward(self, action: OrderAction):
+        assert type(action) is float, f"action should be float, got {type(action)}"
+
         step_reward = 0
 
         if action == 0.0:

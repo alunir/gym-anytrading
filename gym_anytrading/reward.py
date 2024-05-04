@@ -22,7 +22,8 @@ class RewardCalculator:
         self._trade_fee_ask_percent = trade_fee_ask_percent
         self._trade_fee_bid_percent = trade_fee_bid_percent
         self._metrics = {m: 0.0 for m in Metrics}
-        self._last_trade_price = None
+        self._amount_history = []
+        self._trade_price_history = []
 
     def _trade_price(self, tick, action: OrderAction):
         if hasattr(self, "_prices") and self._prices is not None:
@@ -41,18 +42,15 @@ class RewardCalculator:
     def _update_max_dd(
         self, action: OrderAction, current_tick: int, last_trade_tick: int
     ):
+        assert (
+            last_trade_tick < current_tick
+        ), f"last_trade_tick: {last_trade_tick} >= current_tick: {current_tick}"
+        entry_price = self._trade_price_history[0]
         if action > 0.0:
-            dd = (
-                np.min(self._ask[last_trade_tick:current_tick]) / self._last_trade_price
-                - 1.0
-            )
+            dd = np.min(self._ask[last_trade_tick:current_tick]) / entry_price - 1.0
             self._metrics[Metrics.MaxDD] = min(dd, self._metrics[Metrics.MaxDD])
         elif action < 0.0:
-            dd = (
-                1.0
-                - np.max(self._bid[last_trade_tick:current_tick])
-                / self._last_trade_price
-            )
+            dd = 1.0 - np.max(self._bid[last_trade_tick:current_tick]) / entry_price
             self._metrics[Metrics.MaxDD] = min(dd, self._metrics[Metrics.MaxDD])
         else:
             raise ValueError("Invalid position")
@@ -72,56 +70,118 @@ class RewardCalculator:
         self, position: Position, action: OrderAction, current_tick, last_trade_tick
     ):
         current_price = self._trade_price(current_tick, action)
+        assert len(self._trade_price_history) == len(
+            self._amount_history
+        ), f"trade_price_history: {len(self._trade_price_history)} != amount_history: {len(self._amount_history)}"
 
-        if self._last_trade_price is None:
-            self._last_trade_price = current_price
-            return
+        # if position == 0 or sum(self._amount_history) == 0:
+        #     self._amount_history.clear()
+        #     self._trade_price_history.clear()
+        #     # ポジションが0の場合、新規ポジションとして扱う
+        #     self._amount_history.append(action)
+        #     self._trade_price_history.append(current_price)
+        #     return  # 損益計算やメトリクスの更新は行わない
 
-        # Entry with no position then no need to update the metrics
-        if position == 0.0:
-            return
+        # ポジションとアクションが反対の場合、相殺処理を行う
+        if position * action < 0:
+            offset_amount = min(abs(position), abs(action))
+            new_position_amount = abs(action) - offset_amount
 
-        self._update_max_dd(action, current_tick, last_trade_tick)
-
-        if position < 0.0:
-            # Action.Buy at the current price. Later then Position.Long
-            price_diff = self._last_trade_price - current_price
-            pl = price_diff - abs(price_diff) * self._trade_fee_bid_percent
-
-        elif position > 0.0:
-            # Action.Sell at the current price. Later then Position.Short
-            price_diff = current_price - self._last_trade_price
-            pl = price_diff - abs(price_diff) * self._trade_fee_ask_percent
-
-        pl *= min(abs(position), abs(action))
-
-        returns = pl / self._last_trade_price + 1.0
-
-        self._metrics[Metrics.MeanPL], self._metrics[Metrics.VarPL] = (
-            self.__welford_update(
-                self._metrics[Metrics.MeanPL],
-                self._metrics[Metrics.VarPL],
-                self._metrics[Metrics.Trades],
-                pl,
+            # 相殺部分の損益計算
+            average_trade_price = np.average(
+                self._trade_price_history, weights=self._amount_history
             )
-        )
-        self._metrics[Metrics.MeanReturns], self._metrics[Metrics.VarReturns] = (
-            self.__welford_update(
-                self._metrics[Metrics.MeanReturns],
-                self._metrics[Metrics.VarReturns],
-                self._metrics[Metrics.Trades],
-                returns,
+
+            price_diff = (
+                current_price - average_trade_price
+                if position > 0
+                else average_trade_price - current_price
             )
+            offset_pl = price_diff * offset_amount - abs(price_diff) * offset_amount * (
+                self._trade_fee_ask_percent
+                if position > 0
+                else self._trade_fee_bid_percent
+            )
+
+            # 最大ドローダウンの更新
+            self._update_max_dd(action, current_tick, last_trade_tick)
+            # メトリクス更新
+            self._update_metrics(offset_pl)
+
+            # ポジションが反転する場合、履歴をクリア
+            if (position + action) * position < 0:
+                self._amount_history.clear()
+                self._trade_price_history.clear()
+
+            # 新規ポジションの追加
+            if new_position_amount > 0:
+                self._amount_history.append(
+                    new_position_amount * (1 if action > 0 else -1)
+                )
+                self._trade_price_history.append(current_price)
+
+        else:
+            self._amount_history.clear()
+            self._trade_price_history.clear()
+            # ポジションが0の場合、新規ポジションとして扱う
+            self._amount_history.append(action)
+            self._trade_price_history.append(current_price)
+            return  # 損益計算やメトリクスの更新は行わない
+
+            # # ポジションとアクションが同じ方向の場合、通常の損益計算
+            # average_trade_price = np.average(
+            #     self._trade_price_history, weights=self._amount_history
+            # )
+            # price_diff = (
+            #     current_price - average_trade_price
+            #     if position > 0
+            #     else average_trade_price - current_price
+            # )
+            # pl = price_diff * abs(sum(self._amount_history)) - abs(price_diff) * (
+            #     self._trade_fee_ask_percent
+            #     if position > 0
+            #     else self._trade_fee_bid_percent
+            # )
+
+            # # 最大ドローダウンの更新
+            # self._update_max_dd(action, current_tick, last_trade_tick)
+
+            # # メトリクス更新
+            # self._update_metrics(pl)
+
+    def _update_metrics(self, pl):
+        # 損益の平均と分散を更新するために Welford のアルゴリズムを使用
+        num_trades = self._metrics[Metrics.Trades] + 1  # 新しい取引をカウントに追加
+        old_mean_pl = self._metrics[Metrics.MeanPL]
+        old_var_pl = self._metrics[Metrics.VarPL]
+        old_mean_returns = self._metrics[Metrics.MeanReturns]
+        old_var_returns = self._metrics[Metrics.VarReturns]
+
+        entry_price = self._trade_price_history[0]
+        returns = pl / entry_price + 1.0
+
+        # Welford のアルゴリズムで平均と分散を更新
+        new_mean_pl, new_var_pl = self.__welford_update(
+            old_mean_pl, old_var_pl, num_trades, pl
+        )
+        new_mean_returns, new_var_returns = self.__welford_update(
+            old_mean_returns, old_var_returns, num_trades, returns
         )
 
+        self._metrics[Metrics.MeanPL] = new_mean_pl
+        self._metrics[Metrics.VarPL] = new_var_pl
+        self._metrics[Metrics.MeanReturns] = new_mean_returns
+        self._metrics[Metrics.VarReturns] = new_var_returns
+        self._metrics[Metrics.Trades] = num_trades
+
+        # ログリターンの更新
         self._metrics[Metrics.LogReturns] += np.log(returns)
+
+        # 損益に基づいてその他のメトリクスを更新
         self._metrics[Metrics.Profit] += max(pl, 0)
         self._metrics[Metrics.Loss] += min(pl, 0)
-        self._metrics[Metrics.Trades] += 1
         self._metrics[Metrics.WinTrades] += 1 if pl > 0 else 0
         self._metrics[Metrics.LoseTrades] += 1 if pl < 0 else 0
-
-        self._last_trade_price = current_price
 
     # calculate reward based on metrics
     def reward(self, reward_type: RewardType) -> float | None:

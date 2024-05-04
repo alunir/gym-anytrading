@@ -57,8 +57,9 @@ class TradingEnv(gym.Env):
 
         # spaces
         self.action_space = gym.spaces.Box(
-            low=-1,
-            high=1,
+            low=-2,  # position: 1 -> -1
+            high=2,  # position: -1 -> 1
+            shape=(1,),
             dtype=np.float32,
         )
         self.observation_space = gym.spaces.Box(
@@ -122,6 +123,9 @@ class TradingEnv(gym.Env):
         Returns:
             _type_: _description_
         """
+        # action_space is Box(1,) with range (-2, 2). This gonna be a np.array.
+        action = float(action)
+
         self._truncated = False
         self._current_tick += 1
 
@@ -133,16 +137,15 @@ class TradingEnv(gym.Env):
             action = 1 - self._position
         elif self._position + action < -1:
             action = -1 - self._position
-        # if abs(self._position + action) > 1:
-        #     # if the action would bring the position out of allowed range, reject the action
-        #     action = 0  # No change in position
+
+        step_reward = self._calculate_reward(action)
 
         _next_position = self._position + action
         if action != 0.0:
-            self._last_trade_tick = self._current_tick
             self._position = _next_position
 
-        step_reward = self._calculate_reward(action)
+        if np.sign(self._position) * np.sign(_next_position) < 0:
+            self._last_trade_tick = self._current_tick
 
         self._position_history.append(self._position)
         observation = self._get_observation()
