@@ -88,9 +88,12 @@ class RewardCalculator:
             new_position_amount = abs(action) - offset_amount
 
             # 相殺部分の損益計算
-            average_trade_price = np.average(
-                self._trade_price_history, weights=self._amount_history
-            )
+            if self._amount_history.sum() == 0:
+                average_trade_price = np.mean(self._trade_price_history)
+            else:
+                average_trade_price = np.average(
+                    self._trade_price_history, weights=self._amount_history
+                )
 
             price_diff = (
                 current_price - average_trade_price
