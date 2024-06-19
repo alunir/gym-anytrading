@@ -192,6 +192,8 @@ class RewardCalculator:
                 return np.expm1(self._metrics[Metrics.LogReturns]) * 100  # percentage
             case RewardType.LogReturns:
                 return self._metrics[Metrics.LogReturns]
+            case RewardType.MaxDD:
+                return self._metrics[Metrics.MaxDD] * 100  # percentage
             case RewardType.WinRate:
                 if self._metrics[Metrics.Trades] == 0:
                     return 0.0

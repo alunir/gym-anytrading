@@ -68,6 +68,7 @@ class RewardType(Enum):
     Profit = auto()  # 利益
     Returns = auto()  # リターン(Percentage)
     LogReturns = auto()  # ログリターン
+    MaxDD = auto()  # 最大ドローダウン
     WinRate = auto()  # 勝率
     ProfitPerTrade = auto()  # 期待損益
     ProfitFactor = auto()  # プロフィットファクター
